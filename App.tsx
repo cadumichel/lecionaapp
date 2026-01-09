@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { 
   LayoutDashboard, 
   School as SchoolIcon, 
@@ -16,17 +16,28 @@ import {
   ArrowRight,
   ShieldCheck,
   Clock,
-  Sliders
+  Sliders,
+  RefreshCw
 } from 'lucide-react';
 import { AppData, ScheduleEntry, DayOfWeek } from './types';
 import { parseTimeToMinutes, getCurrentTimeInMinutes } from './utils';
-import Dashboard from './components/Dashboard';
-import LessonLogger from './components/LessonLogger';
-import AssessmentManagement from './components/AssessmentManagement';
-import AgendaManagement from './components/AgendaManagement';
-import SettingsPanel from './components/SettingsPanel';
-import StudentManagement from './components/StudentManagement';
-import ReminderManagement from './components/ReminderManagement';
+import { useResponsive } from './hooks/useResponsive';
+
+// Lazy loading de componentes pesados
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const LessonLogger = lazy(() => import('./components/LessonLogger'));
+const AssessmentManagement = lazy(() => import('./components/AssessmentManagement'));
+const AgendaManagement = lazy(() => import('./components/AgendaManagement'));
+const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
+const StudentManagement = lazy(() => import('./components/StudentManagement'));
+const ReminderManagement = lazy(() => import('./components/ReminderManagement'));
+
+// Loading component
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center p-12">
+    <RefreshCw className="animate-spin text-primary" size={32} />
+  </div>
+);
 
 const STORAGE_KEY = 'leciona_data_v1';
 const DRIVE_FILE_NAME = 'leciona_backup.json';
@@ -100,6 +111,14 @@ const App: React.FC = () => {
   const [autoShowPendencies, setAutoShowPendencies] = useState(false);
   
   const lastNotifiedSlot = useRef<string>('');
+  const { isMobile } = useResponsive();
+
+  // Solicitar permissão de notificação
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -255,35 +274,37 @@ const App: React.FC = () => {
         </header>
 
         <div className="p-4 md:p-8 max-w-6xl mx-auto">
-          {activeTab === 'dashboard' && (
-            <>
-              {data.settings.showQuickStartGuide && (
-                <QuickStartGuide onDismiss={() => updateData({ settings: { ...data.settings, showQuickStartGuide: false }})} onNavigate={setActiveTab} />
-              )}
-              <Dashboard 
+          <Suspense fallback={<LoadingSpinner />}>
+            {activeTab === 'dashboard' && (
+              <>
+                {data.settings.showQuickStartGuide && (
+                  <QuickStartGuide onDismiss={() => updateData({ settings: { ...data.settings, showQuickStartGuide: false }})} onNavigate={setActiveTab} />
+                )}
+                <Dashboard 
+                  data={data} 
+                  onUpdateData={updateData} 
+                  onNavigateToLesson={(s, d) => { setPreSelectedLesson({ schedule: s, date: d }); setActiveTab('lessons'); }} 
+                  onNavigateToReminders={() => setActiveTab('reminders')}
+                  onNavigateToPendencies={handleNavigateToPendencies}
+                />
+              </>
+            )}
+            {activeTab === 'students' && <StudentManagement data={data} onUpdateData={updateData} />}
+            {activeTab === 'agenda' && <AgendaManagement data={data} onUpdateData={updateData} />}
+            {activeTab === 'reminders' && <ReminderManagement data={data} onUpdateData={updateData} />}
+            {activeTab === 'lessons' && (
+              <LessonLogger 
                 data={data} 
                 onUpdateData={updateData} 
-                onNavigateToLesson={(s, d) => { setPreSelectedLesson({ schedule: s, date: d }); setActiveTab('lessons'); }} 
-                onNavigateToReminders={() => setActiveTab('reminders')}
-                onNavigateToPendencies={handleNavigateToPendencies}
+                initialLessonData={preSelectedLesson} 
+                onClearInitialLesson={() => setPreSelectedLesson(null)} 
+                defaultShowPendencies={autoShowPendencies}
+                onClearShowPendencies={() => setAutoShowPendencies(false)}
               />
-            </>
-          )}
-          {activeTab === 'students' && <StudentManagement data={data} onUpdateData={updateData} />}
-          {activeTab === 'agenda' && <AgendaManagement data={data} onUpdateData={updateData} />}
-          {activeTab === 'reminders' && <ReminderManagement data={data} onUpdateData={updateData} />}
-          {activeTab === 'lessons' && (
-            <LessonLogger 
-              data={data} 
-              onUpdateData={updateData} 
-              initialLessonData={preSelectedLesson} 
-              onClearInitialLesson={() => setPreSelectedLesson(null)} 
-              defaultShowPendencies={autoShowPendencies}
-              onClearShowPendencies={() => setAutoShowPendencies(false)}
-            />
-          )}
-          {activeTab === 'assessments' && <AssessmentManagement data={data} onUpdateData={updateData} />}
-          {activeTab === 'settings' && <SettingsPanel data={data} onUpdateData={updateData} onSyncNow={() => syncToDrive(data)} />}
+            )}
+            {activeTab === 'assessments' && <AssessmentManagement data={data} onUpdateData={updateData} />}
+            {activeTab === 'settings' && <SettingsPanel data={data} onUpdateData={updateData} onSyncNow={() => syncToDrive(data)} />}
+          </Suspense>
         </div>
       </main>
     </div>
