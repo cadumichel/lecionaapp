@@ -1,0 +1,27 @@
+
+{
+  "short_name": "Leciona",
+  "name": "Leciona - Gestão Escolar",
+  "id": "/?source=pwa",
+  "description": "Sua rotina escolar organizada. Gerenciamento completo da rotina docente.",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/299/299699.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/299/299699.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#2563eb",
+  "background_color": "#f8fafc"
+}
